@@ -1,0 +1,7 @@
+Issues
+
+- minimum trim threshold... where/how to enforce?
+- how to make memobuffer.getduration less expensive?
+    - cache?
+- do we need to use "@escaping" anywhere (for callbacks)?
+

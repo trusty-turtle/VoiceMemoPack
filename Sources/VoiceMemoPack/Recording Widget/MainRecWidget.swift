@@ -22,11 +22,23 @@ public protocol ProtocolForARecording: Observable, AnyObject {
     var trimEndPoint: Double { get set }
     var isFinalized:Bool { get }
     func getMemoBuffer(withoutTrim: Bool) -> MemoBuffer
-    func finalize()
+    func finalizeTrim()
     
 }
 
-public struct NewRecWidgetMainView<_RecParent: ProtocolForParentOfARecording>: View {
+public struct RecordingWidget<_RecParent: ProtocolForParentOfARecording>: View {
+    
+    //public init() {}
+    
+    public init(parentOfRecording: _RecParent, openAppSettingsForMicPermission: @escaping () -> Void, buttonSideLengthInPoints: CGFloat, buttonColor: Color, postWaveColor: Color, finalWaveColor: Color) {
+        self.parentOfRecording = parentOfRecording
+        self.openAppSettingsForMicPermission = openAppSettingsForMicPermission
+        self.buttonSideLengthInPoints = buttonSideLengthInPoints
+        self.buttonColor = buttonColor
+        self.postWaveColor = postWaveColor
+        self.finalWaveColor = finalWaveColor
+    }
+    
     @Environment(\.modelContext) var modelContext // insert,delete
     // ------------------------------------------------- BOILERPLATE
     
@@ -150,7 +162,9 @@ public struct NewRecWidgetMainView<_RecParent: ProtocolForParentOfARecording>: V
             do {
                 try recorder.startRecordingWithPermission()
             } catch {
-                
+                print("we are here")
+                print(error)
+                fatalError()
             }
             
             
@@ -190,6 +204,7 @@ public struct NewRecWidgetMainView<_RecParent: ProtocolForParentOfARecording>: V
                 isRecording = false
             }
         } catch {
+            print(error)
             fatalError()
         }
         
@@ -459,7 +474,7 @@ struct RW_PostAndFinalizedView<AnnoyingRequirement2: ProtocolForARecording>: Vie
                 }
                 .offset(x: (3 * (hSpace/numButtonsInFinal/2) - bsp/2) + hPad, y: buttonVSpace/2 - bsp/2)
                 ZStack{
-                    SimpleWave(audioWave: recording.getMemoBuffer(withoutTrim: true).getVisualWave(resolution: <#T##Int#>), color: finalizedWaveColor)
+                    SimpleWave(audioWave: recording.getMemoBuffer(withoutTrim: true).getVisualWave(resolution: waveResolution), color: finalizedWaveColor)
                     if (playHeadPosition > 0) {
                         PlayHeadOverlay(currentPlaybackPoint: playHeadPosition, lineWidthInPoints: playHeadLineWidth, startTrim: 0, endTrim: 1)
                     }
@@ -489,7 +504,7 @@ struct RW_PostAndFinalizedView<AnnoyingRequirement2: ProtocolForARecording>: Vie
         isSwitchingFromPostToFinal = true
         player.stop()
         withAnimation(.easeInOut (duration: 0.45)) {
-            recording.finalize()
+            recording.finalizeTrim()
             isSwitchingFromPostToFinal = false
         }
         
