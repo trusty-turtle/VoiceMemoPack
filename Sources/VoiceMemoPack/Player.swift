@@ -31,7 +31,7 @@ public class MemoPlayer {
     private var bufferDurationSeconds:Double = 0
     public var playHeadPosition:Double = 0
     
-    static let shared:MemoPlayer = MemoPlayer()
+    public static let shared:MemoPlayer = MemoPlayer()
     
     private init() {
         engine = AVAudioEngine()

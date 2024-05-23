@@ -17,18 +17,12 @@ enum AudioExtractionError: Error {
 }
 
 public enum MemoRecorderError: Error {
-    case startCalledWhileRecording
-    case stopCalledWhileNotRecording
     case audioRecorderInitFailed(Error)
     case bufferExtractionError(Error)
-    case internalBrainAlreadyPlaying
-    case internalBrainEngineStartFailed(Error)
-    case unexpectedPigsFlyError(Error)
-
 }
 
 @Observable
-public class MemoRecorder {
+class MemoRecorder {
     
     private var randomPrefixForTempFile:String = UUID().uuidString
     
@@ -43,7 +37,7 @@ public class MemoRecorder {
     public var peakRecLevel:Double = 0 // from 0 to 1
     public var peakHoldTimeRemaining:Double = 0 // from 1 to 0 : percent of peak hold time remaining
     
-    public static var shared = MemoRecorder()
+    public static let shared = MemoRecorder()
     
     private init() {
         print("recorder.init!")
@@ -60,19 +54,15 @@ public class MemoRecorder {
                 }
             }
         } catch {
-            print(error)
-            fatalError()
-            // Not fatal at all (we could not clean up temp file), do nothing.
-            // print("Could not clear temp folder: \(error)")
+            // Not fatal at all (we could not clean up temp file), just print
+            print("Error during MemoRecorder.init: could not clean up orphaned temp files: \(error)")
         }
         
     }
     
     // Caller must already have permission!
     public func startRecordingWithPermission() throws {
-        if (isRecording) {
-            throw MemoRecorderError.startCalledWhileRecording
-        }
+        assert(!isRecording)
         randomPrefixForTempFile = UUID().uuidString
         let audioFilename = getDocumentsDirectory().appendingPathComponent("recording-\(randomPrefixForTempFile).wav")
         
@@ -95,6 +85,7 @@ public class MemoRecorder {
     
     // Called when we need to stop recording but the caller does not want/need the buffer
     public func stopRecordingAndDiscard() {
+        assert(isRecording)
         meteringTimer?.invalidate()
         audioRecorder?.stop()
         if (isRecording) {
@@ -103,9 +94,7 @@ public class MemoRecorder {
     }
     
     public func stopRecordingAndReturnBuffer() throws -> MemoBuffer {
-        if (!isRecording) {
-            throw MemoRecorderError.stopCalledWhileNotRecording
-        }
+        assert(isRecording)
         meteringTimer?.invalidate()
         audioRecorder?.stop()
         audioRecorder = nil

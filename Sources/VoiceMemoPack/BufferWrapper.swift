@@ -9,12 +9,22 @@ import Foundation
 import AVFoundation
 import SwiftData
 
-// our custom AVAUDIOPCMBuffer
+/*
+ A wrapper for AVAudioPCMBuffer
+ 
+ Exists mainly to enforce a hard-coded format that the whole package respects
+ 
+ This makes the package more predictable and reliable
+ */
+
 public class MemoBuffer {
     
-    // Changing this format from 44100 / float32 / 1-channel / nonInterleaved
-    // will require careful search for side-effects
-    // Bang is safe because this is a standard format
+    // Default (hard coded here) format is 44100 / float32 / 1-channel / nonInterleaved
+    // Force unwrap is safe to use on this default format because it that is a standard format.
+    // Changing this format in any way after having already made recordings in your app will have "undefined" results.
+    // I suggest deciding this format and then never changing it.
+    // Initially, you can set any parameters for sampleRate, channels, or interleaved, but...
+    // .pcmFormatFloat32 should NOT ever be changed.
     public static let memoFormat = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 44100.0, channels: 1, interleaved: false)!
     
     // Always guaranteed to be in correct ("memoFormat" above) format!

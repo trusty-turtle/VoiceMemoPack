@@ -2,50 +2,64 @@ import SwiftUI
 import AVFoundation
 import SwiftData
 
-// This is a test note!!
+/*
+ TODO
+    - dismiss behavior -- how to allow parent to force immediate "cancel/abort"
+ */
 
-// TODO: tidy this color issue up
-let darkGray = Color.gray
-
-public protocol ProtocolForParentOfARecording: Observable, AnyObject {
-    associatedtype _Rec: ProtocolForARecording
-    
-    var recording: _Rec? { get set }
-    
-    func deleteRecording(modelContext: ModelContext)
-    func replaceRecording(newRecording: MemoBuffer, modelContext: ModelContext)
-    
+public enum RecordingWidgetError {
+    case startRecordingFailed(Error)
+    case stopRecordingFailed(Error)
+    case playFailed(Error)
 }
 
-public protocol ProtocolForARecording: Observable, AnyObject {
-    //init()
-    var duration: Double { get }
-    var trimStartPoint: Double { get set }
-    var trimEndPoint: Double { get set }
-    var isFinalized:Bool { get }
-    func getMemoBuffer(withoutTrim: Bool) -> MemoBuffer
-    func finalizeTrim()
-    
-}
+let darkGray = Color.init(hue: 0, saturation: 0, brightness: 0.25)
 
 public struct RecordingWidget<_RecParent: ProtocolForParentOfARecording>: View {
     
-    //public init() {}
+    public struct UIDimensionsConfig {
+        var buttonSideLengthInPoints: CGFloat = 30
+        var waveHeightAsPercentageOfTotalHeight: Double = 2/5
+        var horizontalPaddingAsPercentageOfTotalWidth: Double = 1/10
+    }
     
-    public init(parentOfRecording: _RecParent, openAppSettingsForMicPermission: @escaping () -> Void, buttonSideLengthInPoints: CGFloat, buttonColor: Color, postWaveColor: Color, finalWaveColor: Color) {
+    public struct UIColorConfig {
+        var buttonColor: Color = darkGray
+        var waveViewBorderColor: Color = darkGray
+        var postWaveColor: Color = .red
+        var finalWaveColor: Color = darkGray
+        var cropLineColor: Color = darkGray
+        var cropMaskColor: Color = darkGray
+        var cropMaskOpacity: Double = 0.5
+        var inactiveScissorButtonOpacity:Double = 0.2
+        
+    }
+    
+    public struct UIOtherConfig {
+        var waveViewBorderWidthPoints: Double = 2
+        var waveResolution: Int = 800
+        var cropLineWidthPoints: Double = 2
+        var playHeadLineWidthPoints: Double = 2
+    }
+    
+    public init(
+        parentOfRecording: _RecParent,
+        openAppSettingsForMicPermission: @escaping () -> Void,
+        onError: @escaping (RecordingWidgetError) -> Void,
+        customColors: UIColorConfig? = nil,
+        customDimensions: UIDimensionsConfig? = nil,
+        customOther: UIOtherConfig? = nil)
+    {
         self.parentOfRecording = parentOfRecording
         self.openAppSettingsForMicPermission = openAppSettingsForMicPermission
-        self.buttonSideLengthInPoints = buttonSideLengthInPoints
-        self.buttonColor = buttonColor
-        self.postWaveColor = postWaveColor
-        self.finalWaveColor = finalWaveColor
+        self.onError = onError
+        self.colorConfig = customColors ?? UIColorConfig()
+        self.dimensionsConfig = customDimensions ?? UIDimensionsConfig()
+        self.otherUIConfig = customOther ?? UIOtherConfig()
     }
     
     @Environment(\.modelContext) var modelContext // insert,delete
-    // ------------------------------------------------- BOILERPLATE
     
-    // for replacing onDisappear due to screen transition delay (????? (old note))
-    // @Environment(NavigationTarget.self) var navController
     @Environment(\.scenePhase) var scenePhase
     
     // for matched geom effect
@@ -65,94 +79,77 @@ public struct RecordingWidget<_RecParent: ProtocolForParentOfARecording>: View {
     
     // Injected Functions
     let openAppSettingsForMicPermission: () -> Void
-    
-    // UI
-    let buttonSideLengthInPoints:CGFloat
-    let buttonColor:Color
-    let postWaveColor:Color
-    let finalWaveColor:Color
+    let onError: (RecordingWidgetError) -> Void
     
     var micIsDenied: Bool {
         return AVAudioApplication.shared.recordPermission == .denied
     }
     
-    // ------------------------------------------------- CONFIG
-    let waveResolution = 800
+    let colorConfig:UIColorConfig
+    let dimensionsConfig:UIDimensionsConfig
+    let otherUIConfig:UIOtherConfig
     
-    public var body: some View { GeometryReader { geometry in
-        
-        
-        let h = geometry.size.height
-        let w = geometry.size.width
-        let bsp = buttonSideLengthInPoints
-        // all layout should be definable using the following vars -- not changing values in the view code
-        let buttonVSpace = h*1.5/5
-        let waveVSpace = h*2/5
-        let sliderVSpace = h*1.5/5
-        let hPad = w/10
-        let hSpace = w - hPad*2
-        
-        
-        if isRecording {
-            RW_RecordingInProgressView(namespace: recNamespace, parentHeight: h, parentWidth: w, buttonSideLengthInPoints: bsp, recordingLevel: recorder.currentRecLevel, peakRecordingLevel: recorder.currentRecLevel, peakHoldTimeRemaining: recorder.peakHoldTimeRemaining, onStopRecordingPressed: stopRecording)
-        } else if parentOfRecording.recording != nil {
-            //@Bindable var recording = parentOfRecording.recording!
-            //let memoBuffer = recording.getMemoBuffer(withoutTrim: true)
-            /*
-             // ------------------------------------------- PARAMS
-             let namespace: Namespace.ID // for matched geom effect
-             let buttonColor:Color
-             // inherited geometry
-             let buttonSideLengthInPoints:CGFloat
-             let buttonVSpace:Double
-             let hPad:Double
-             let sliderVSpace:Double
-             let hSpace:Double
-             let waveVSpace:Double
-             // audio representation and bindings
-             let audioWave:[Double]
-             let playHeadPosition:Double
-             let recordingIsFinalized:Bool
-             @Binding var trimStart:Double
-             @Binding var trimEnd:Double
-             // Callbacks
-             let onPlayPressed: () -> Void
-             let onTrashPressed: () -> Void
-             let onTrimGestureBegan: () -> Void
-             let onTrimGestureEnded: () -> Void
-             let onFinalizeTrimPressed: () -> Void
-             */
+    public var body: some View {
+        GeometryReader { geometry in
             
-            RW_PostAndFinalizedView(
-                namespace: recNamespace,
-                buttonColor: buttonColor,
-                buttonSideLengthInPoints: bsp,
-                buttonVSpace: buttonVSpace,
-                hPad: hPad,
-                sliderVSpace: sliderVSpace,
-                hSpace: hSpace, waveVSpace: waveVSpace,
-                playHeadPosition: player.playHeadPosition,
-                recording: parentOfRecording.recording!,
-                onTrashPressed: trashPressed
-            )
+            let waveHeightFactor = dimensionsConfig.waveHeightAsPercentageOfTotalHeight
             
-        } else {
-            // STATE = blank
-            RW_BlankView(namespace: recNamespace, parentHeight: h, parentWidth: w, buttonSideLengthInPoints: bsp, micIsDenied: micIsDenied, onBrokenMicPressed: openAppSettingsForMicPermission, onStartRecordingPressed: startRecording)
+            let h = geometry.size.height
+            let w = geometry.size.width
+            let bsp = dimensionsConfig.buttonSideLengthInPoints
+            let buttonVSpace = h * (1 - waveHeightFactor)/2
+            let waveVSpace = h * waveHeightFactor
+            let sliderVSpace = h * (1 - waveHeightFactor)/2
+            let hPad = w * dimensionsConfig.horizontalPaddingAsPercentageOfTotalWidth
+            let hSpace = w - hPad*2
+            
+            
+            if isRecording {
+                RW_RecordingInProgressView(namespace: recNamespace, parentHeight: h, parentWidth: w, buttonSideLengthInPoints: bsp, recordingLevel: recorder.currentRecLevel, peakRecordingLevel: recorder.currentRecLevel, peakHoldTimeRemaining: recorder.peakHoldTimeRemaining, onStopRecordingPressed: stopRecording)
+            } else if parentOfRecording.recording != nil {
+                
+                RW_PostAndFinalizedView(
+                    namespace: recNamespace,
+                    buttonColor: colorConfig.buttonColor,
+                    buttonSideLengthInPoints: bsp,
+                    buttonVSpace: buttonVSpace,
+                    hPad: hPad,
+                    sliderVSpace: sliderVSpace,
+                    hSpace: hSpace, 
+                    waveVSpace: waveVSpace,
+                    
+                    inactiveScissorButtonColor: colorConfig.buttonColor.opacity(colorConfig.inactiveScissorButtonOpacity),
+                    postWaveColor: colorConfig.postWaveColor,
+                    finalWaveColor: colorConfig.finalWaveColor,
+                    cropMaskColor: colorConfig.cropMaskColor.opacity(colorConfig.cropMaskOpacity),
+                    cropLineColor: colorConfig.cropLineColor,
+                    waveViewBorderColor: colorConfig.waveViewBorderColor,
+                    waveViewBorderWidth: otherUIConfig.waveViewBorderWidthPoints,
+                    cropLineWidth: otherUIConfig.cropLineWidthPoints,
+                    playHeadLineWidth: otherUIConfig.playHeadLineWidthPoints,
+                    waveResolution: otherUIConfig.waveResolution,
+                    
+                    recording: parentOfRecording.recording!,
+                    onTrashPressed: trashPressed
+                )
+                
+            } else {
+                // STATE = blank
+                RW_BlankView(namespace: recNamespace, parentHeight: h, parentWidth: w, buttonSideLengthInPoints: bsp, micIsDenied: micIsDenied, onBrokenMicPressed: openAppSettingsForMicPermission, onStartRecordingPressed: startRecording)
+            }
         }
-    }
         // important to stop recording when this view disappears
-    .onDisappear() {
-        onDismiss()
-    }
+        .onDisappear() {
+            cancelEverythingDueToLifecycleEvent()
+        }
         // important to stop recording is app is backgrounded
         // (onDisappear is not triggered when this happens)
-    .onChange(of: scenePhase) {
-        oldValue, newValue in
-        if newValue == .background {
-            onDismiss()
+        .onChange(of: scenePhase) {
+            oldValue, newValue in
+            if newValue == .background {
+                cancelEverythingDueToLifecycleEvent()
+            }
         }
-    }
         
     }
     
@@ -164,9 +161,7 @@ public struct RecordingWidget<_RecParent: ProtocolForParentOfARecording>: View {
             do {
                 try recorder.startRecordingWithPermission()
             } catch {
-                print("we are here")
-                print(error)
-                fatalError()
+                onError(.startRecordingFailed(error))
             }
             
             
@@ -188,15 +183,14 @@ public struct RecordingWidget<_RecParent: ProtocolForParentOfARecording>: View {
                             isRecording = true
                         }
                     } catch {
-                        fatalError()
+                        onError(.startRecordingFailed(error))
                     }
-                
+                    
                 }
             }
         }
     }
     
-    // !!! improve error handling here
     // *** STATE CHANGE : recording ->> recorded
     private func stopRecording() {
         do {
@@ -206,8 +200,7 @@ public struct RecordingWidget<_RecParent: ProtocolForParentOfARecording>: View {
                 isRecording = false
             }
         } catch {
-            print(error)
-            fatalError()
+            onError(.stopRecordingFailed(error))
         }
         
         
@@ -229,37 +222,20 @@ public struct RecordingWidget<_RecParent: ProtocolForParentOfARecording>: View {
     
     // ----------------------------------------------------------- lifecycle and edge case internal calls
     
-    // do we need to cancel earlier (immediately when back is pressed?)
-    // in order to avoid stale state in main?
     /*
-     // BEGIN OLD NOTE:
-     // called when
-     // - parent (edit screen) uses nav controller to pop back to main
-     //      - necessary because onDisappear does not get called until after view transition
-     //        (slide animation back to main screen) is complete
-     // - app goes to background (experimental)
-     //
+     Called when
+        - this view disappears
+        - app is backgrounded
+        - todo: when parent explicity ask for it
+            - presumably in cases where indisappear is insufficient due to complex screen-to-screen animations
      */
-    private func onDismiss() {
+
+    private func cancelEverythingDueToLifecycleEvent() {
         if (isRecording) {
             recorder.stopRecordingAndDiscard()
             isRecording = false
         }
-        
-        
     }
-    
-    /*
-     private func openAppSettings() {
-     DispatchQueue.main.async {
-     guard let url = URL(string: UIApplication.openSettingsURLString), UIApplication.shared.canOpenURL(url) else {
-     return
-     }
-     
-     UIApplication.shared.open(url, options: [:], completionHandler: nil)
-     }
-     }*/
-    
 }
 
 
@@ -357,8 +333,7 @@ struct RW_RecordingInProgressView: View {
     
 }
 
-
-struct RW_PostAndFinalizedView<AnnoyingRequirement2: ProtocolForARecording>: View {
+struct RW_PostAndFinalizedView: View {
     
     // precise control over post -> final transition UI
     @State var isSwitchingFromPostToFinal = false
@@ -367,36 +342,37 @@ struct RW_PostAndFinalizedView<AnnoyingRequirement2: ProtocolForARecording>: Vie
     
     // ------------------------------------------- PARAMS
     let namespace: Namespace.ID // for matched geom effect
+    // ui args (shared with main)
     let buttonColor:Color
-    // inherited geometry
-    let buttonSideLengthInPoints:CGFloat
+    let buttonSideLengthInPoints:Double
+    // ui args (shared with main and computed from main view's geo reader)
     let buttonVSpace:Double
     let hPad:Double
     let sliderVSpace:Double
     let hSpace:Double
     let waveVSpace:Double
+    // ui args (not shared with main)
+    let inactiveScissorButtonColor:Color
+    let postWaveColor:Color
+    let finalWaveColor:Color
+    let cropMaskColor:Color
+    let cropLineColor:Color
+    let waveViewBorderColor:Color
+    let waveViewBorderWidth:Double
+    let cropLineWidth:Double
+    let playHeadLineWidth:Double
+
+    let waveResolution: Int
+
     // audio representation and bindings
-    let playHeadPosition:Double
-    @Bindable var recording:AnnoyingRequirement2
+    @Bindable var recording:Recording
     // Callbacks
     let onTrashPressed: () -> Void
     
-    // ------------------------------------------- UI CONFIG
-    // POST
+    // ------------------------------------------- INTERNAL UI CONFIG
+
     let numButtonsInPost:CGFloat = 3
-    let inactiveScissorButtonColor = Color.gray.opacity(0.25)
-    let cropLineWidth:CGFloat = 2
-    let cropOverlayColor = Color.gray.opacity(0.5)
-    let cropCutLineColor = darkGray
-    let recordedWaveColor = Color.red
-    // FINAL
     let numButtonsInFinal:CGFloat = 2
-    let finalizedWaveColor = darkGray
-    // POST & FINAL
-    let playHeadLineWidth:CGFloat = 2
-    let waveViewBorderWidth:CGFloat = 2
-    let waveViewBorderColor = darkGray
-    let waveResolution = 800
     
     var body: some View {
         let bsp = buttonSideLengthInPoints
@@ -443,10 +419,10 @@ struct RW_PostAndFinalizedView<AnnoyingRequirement2: ProtocolForARecording>: Vie
                 
                 ZStack{
                     isSwitchingFromPostToFinal ? AnyView(Rectangle().fill(Color.white)) :
-                    AnyView(SimpleWave(audioWave: recording.getMemoBuffer(withoutTrim: true).getVisualWave(resolution: waveResolution), color: recordedWaveColor))
-                    CropModeOverlay(startPoint: recording.trimStartPoint, endPoint: recording.trimEndPoint, cutLineColor: cropCutLineColor, cropColor: cropOverlayColor, cropLineWidth: cropLineWidth)
-                    if (playHeadPosition > 0) {
-                        PlayHeadOverlay(currentPlaybackPoint: playHeadPosition, lineWidthInPoints: playHeadLineWidth, startTrim: recording.trimStartPoint, endTrim: recording.trimEndPoint)
+                    AnyView(SimpleWave(audioWave: recording.getMemoBuffer(withoutTrim: true).getVisualWave(resolution: waveResolution), color: postWaveColor))
+                    CropModeOverlay(startPoint: recording.trimStartPoint, endPoint: recording.trimEndPoint, cutLineColor: cropLineColor, cropColor: cropMaskColor, cropLineWidth: cropLineWidth)
+                    if (player.playHeadPosition > 0) {
+                        PlayHeadOverlay(currentPlaybackPoint: player.playHeadPosition, lineWidthInPoints: playHeadLineWidth, startTrim: recording.trimStartPoint, endTrim: recording.trimEndPoint)
                     }
                 }
                 .frame(width: hSpace, height: waveVSpace)
@@ -476,9 +452,9 @@ struct RW_PostAndFinalizedView<AnnoyingRequirement2: ProtocolForARecording>: Vie
                 }
                 .offset(x: (3 * (hSpace/numButtonsInFinal/2) - bsp/2) + hPad, y: buttonVSpace/2 - bsp/2)
                 ZStack{
-                    SimpleWave(audioWave: recording.getMemoBuffer(withoutTrim: true).getVisualWave(resolution: waveResolution), color: finalizedWaveColor)
-                    if (playHeadPosition > 0) {
-                        PlayHeadOverlay(currentPlaybackPoint: playHeadPosition, lineWidthInPoints: playHeadLineWidth, startTrim: 0, endTrim: 1)
+                    SimpleWave(audioWave: recording.getMemoBuffer(withoutTrim: true).getVisualWave(resolution: waveResolution), color: finalWaveColor)
+                    if (player.playHeadPosition > 0) {
+                        PlayHeadOverlay(currentPlaybackPoint: player.playHeadPosition, lineWidthInPoints: playHeadLineWidth, startTrim: 0, endTrim: 1)
                     }
                 }
                 .frame(width: hSpace, height: waveVSpace)
@@ -489,7 +465,7 @@ struct RW_PostAndFinalizedView<AnnoyingRequirement2: ProtocolForARecording>: Vie
     }
     
     
-    // ------------------------------------------------------------------------------------------------------------------
+    // -------------------------------------------------------------- POST/FINAL FUNCTIONS
     
     
     
@@ -498,7 +474,7 @@ struct RW_PostAndFinalizedView<AnnoyingRequirement2: ProtocolForARecording>: Vie
         do {
             try player.playMemoWithPlayHeadAnimation(recording.getMemoBuffer(withoutTrim: false))
         } catch {
-            //
+            // !!!
         }
     }
     
@@ -517,10 +493,12 @@ struct RW_PostAndFinalizedView<AnnoyingRequirement2: ProtocolForARecording>: Vie
         do {
             try player.playMemoWithPlayHeadAnimation(recording.getMemoBuffer(withoutTrim: false))
         } catch {
-            //
+            // !!!
         }
     }
 }
+
+
 
 
 
