@@ -22,7 +22,7 @@ public enum MemoRecorderError: Error {
 }
 
 @Observable
-class MemoRecorder {
+public class MemoRecorder {
     
     private var randomPrefixForTempFile:String = UUID().uuidString
     
@@ -186,6 +186,7 @@ class MemoRecorder {
         }
     }
     
+    // factored from timederCallback()
     private func convertDecibelsToLinear(_ decibels: Double) -> Double {
         let clampedDecibels = max(decibels, -160.0) // Clamp the minimum decibel value
         return pow(10.0, clampedDecibels / 20.0) // Convert to linear scale
