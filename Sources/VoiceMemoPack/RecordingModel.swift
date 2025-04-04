@@ -70,8 +70,11 @@ public final class Recording {
         assert(!isFinalized)
         if hasTrimmed {
             let full = MemoBuffer(fromData: fullAudioData)
+            print("!!! - frame len: \(full.getAVAudioPCMBuffer().frameLength)")
             let trimmed = MemoBuffer(fromAVAudioPCMBuffer: full.getAVAudioPCMBuffer(), start: trimStartPoint, end: trimEndPoint)
+            print("!!! - trimmed len: \(full.getAVAudioPCMBuffer().frameLength)")
             fullAudioData = trimmed.toData()
+            print("!!! - final len: \(fullAudioData.count)")
         }
         // reset trim points so that we don't get compounded trim in recwidget.recorded.play()
         trimStartPoint = 0

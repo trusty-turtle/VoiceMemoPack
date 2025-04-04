@@ -15,13 +15,16 @@ public enum RecordingWidgetError {
     case playFailed(Error)
 }
 
-let darkGray = Color.init(hue: 0, saturation: 0, brightness: 0.25)
+public let darkGray = Color.init(hue: 0, saturation: 0, brightness: 0.25)
 
 public struct RecordingWidget<_RecParent: ProtocolForParentOfARecording>: View {
     
+
+
+    /*
     public struct UIDimensionsConfig {
         var buttonSideLengthInPoints: CGFloat = 30
-        var waveHeightAsPercentageOfTotalHeight: Double = 2/5
+        var waveHeightAsPercentageOfTotalHeight: Double = 1/5
         var horizontalPaddingAsPercentageOfTotalWidth: Double = 1/10
     }
     
@@ -42,7 +45,75 @@ public struct RecordingWidget<_RecParent: ProtocolForParentOfARecording>: View {
         var waveResolution: Int = 800
         var cropLineWidthPoints: Double = 2
         var playHeadLineWidthPoints: Double = 2
+    }*/
+    
+    public struct UIDimensionsConfig {
+        public var buttonSideLengthInPoints: CGFloat
+        public var waveHeightAsPercentageOfTotalHeight: Double
+        public var horizontalPaddingAsPercentageOfTotalWidth: Double
+
+        public init(
+            buttonSideLengthInPoints: CGFloat = 30,
+            waveHeightAsPercentageOfTotalHeight: Double = 1/5,
+            horizontalPaddingAsPercentageOfTotalWidth: Double = 1/10
+        ) {
+            self.buttonSideLengthInPoints = buttonSideLengthInPoints
+            self.waveHeightAsPercentageOfTotalHeight = waveHeightAsPercentageOfTotalHeight
+            self.horizontalPaddingAsPercentageOfTotalWidth = horizontalPaddingAsPercentageOfTotalWidth
+        }
     }
+
+    public struct UIColorConfig {
+        
+        public var buttonColor: Color
+        public var waveViewBorderColor: Color
+        public var postWaveColor: Color
+        public var finalWaveColor: Color
+        public var cropLineColor: Color
+        public var cropMaskColor: Color
+        public var cropMaskOpacity: Double
+        public var inactiveScissorButtonOpacity: Double
+
+        public init(
+            buttonColor: Color = darkGray,
+            waveViewBorderColor: Color = darkGray,
+            postWaveColor: Color = .red,
+            finalWaveColor: Color = darkGray,
+            cropLineColor: Color = darkGray,
+            cropMaskColor: Color = darkGray,
+            cropMaskOpacity: Double = 0.5,
+            inactiveScissorButtonOpacity: Double = 0.2
+        ) {
+            self.buttonColor = buttonColor
+            self.waveViewBorderColor = waveViewBorderColor
+            self.postWaveColor = postWaveColor
+            self.finalWaveColor = finalWaveColor
+            self.cropLineColor = cropLineColor
+            self.cropMaskColor = cropMaskColor
+            self.cropMaskOpacity = cropMaskOpacity
+            self.inactiveScissorButtonOpacity = inactiveScissorButtonOpacity
+        }
+    }
+
+    public struct UIOtherConfig {
+        public var waveViewBorderWidthPoints: Double
+        public var waveResolution: Int
+        public var cropLineWidthPoints: Double
+        public var playHeadLineWidthPoints: Double
+
+        public init(
+            waveViewBorderWidthPoints: Double = 2,
+            waveResolution: Int = 800,
+            cropLineWidthPoints: Double = 2,
+            playHeadLineWidthPoints: Double = 2
+        ) {
+            self.waveViewBorderWidthPoints = waveViewBorderWidthPoints
+            self.waveResolution = waveResolution
+            self.cropLineWidthPoints = cropLineWidthPoints
+            self.playHeadLineWidthPoints = playHeadLineWidthPoints
+        }
+    }
+
     
     public init(
         parentOfRecording: _RecParent,
@@ -98,6 +169,7 @@ public struct RecordingWidget<_RecParent: ProtocolForParentOfARecording>: View {
             
             let h = geometry.size.height
             let w = geometry.size.width
+            let _ = print("!!!! width: \(w)")
             let bsp = dimensionsConfig.buttonSideLengthInPoints
             let buttonVSpace = h * (1 - waveHeightFactor)/2
             let waveVSpace = h * waveHeightFactor
@@ -210,6 +282,7 @@ public struct RecordingWidget<_RecParent: ProtocolForParentOfARecording>: View {
     
     // *** STATE CHANGE : recorded ->> blank
     private func trashPressed() {
+        print("!!!!! TRASH PRESSED !!!!!!")
         // removed ex.recording == nil check because:
         // - we are checking it in Exercise.deleteRecording anyway
         // - it should be inherently impossible anyway
